@@ -1,4 +1,38 @@
 import { test, expect } from "@playwright/test";
+import { mkdtemp, writeFile, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { resolve, join } from "node:path";
+import { execFile } from "node:child_process";
+
+async function runDoctor(
+  contents?: string,
+  overrides: Record<string, string> = {},
+) {
+  const cwd = await mkdtemp(join(tmpdir(), "kadr-doctor-"));
+  try {
+    if (contents !== undefined)
+      await writeFile(join(cwd, ".env"), contents, { mode: 0o600 });
+    const env: Record<string, string | undefined> = {
+      ...process.env,
+      NUXT_TMDB_API_BASE: "http://127.0.0.1:4010/3",
+    };
+    delete env.NUXT_TMDB_READ_TOKEN;
+    Object.assign(env, overrides);
+    return await new Promise<{ code: string | number; output: string }>(
+      (done) => {
+        execFile(
+          process.execPath,
+          [resolve("scripts/doctor.mjs")],
+          { cwd, env },
+          (error, stdout, stderr) =>
+            done({ code: error?.code || 0, output: stdout + stderr }),
+        );
+      },
+    );
+  } finally {
+    await rm(cwd, { recursive: true, force: true });
+  }
+}
 
 test("SSR renders catalog, film and person without JavaScript", async ({
   browser,
@@ -285,4 +319,63 @@ test("person filmography is deduplicated and paginated", async ({
   await expect(page.locator(".movie-card")).toHaveCount(24);
   await page.getByRole("button", { name: "Ещё фильмы", exact: true }).click();
   await expect(page.locator(".movie-card")).toHaveCount(31);
+});
+
+test("doctor reads .env and respects injected runtime credentials without printing them", async () => {
+  const fromFile = await runDoctor("NUXT_TMDB_READ_TOKEN=tmdb-fixture-only");
+  expect(fromFile.code).toBe(0);
+  expect(fromFile.output).toContain("каталог получен");
+  expect(fromFile.output).not.toContain("tmdb-fixture-only");
+  const fromProcess = await runDoctor("NUXT_TMDB_READ_TOKEN=wrong-file-token", {
+    NUXT_TMDB_READ_TOKEN: "tmdb-fixture-only",
+  });
+  expect(fromProcess.code).toBe(0);
+  expect(fromProcess.output).not.toContain("tmdb-fixture-only");
+  expect(fromProcess.output).not.toContain("wrong-file-token");
+});
+
+test("doctor explains a rejected or incorrectly pasted token", async () => {
+  const rejected = await runDoctor("NUXT_TMDB_READ_TOKEN=wrong-fixture-token");
+  expect(rejected.code).toBe(1);
+  expect(rejected.output).toContain("HTTP 401");
+  expect(rejected.output).not.toContain("wrong-fixture-token");
+  const prefixed = await runDoctor(
+    'NUXT_TMDB_READ_TOKEN="Bearer wrong-fixture-token"',
+  );
+  expect(prefixed.code).toBe(1);
+  expect(prefixed.output).toContain("без префикса Bearer");
+  expect(prefixed.output).not.toContain("wrong-fixture-token");
+});
+
+test("doctor distinguishes missing configuration and connectivity failure", async () => {
+  const missing = await runDoctor();
+  expect(missing.code).toBe(1);
+  expect(missing.output).toContain("Не задан NUXT_TMDB_READ_TOKEN");
+  const unreachable = await runDoctor(
+    "NUXT_TMDB_READ_TOKEN=tmdb-fixture-only",
+    { NUXT_TMDB_API_BASE: "http://127.0.0.1:0/3" },
+  );
+  expect(unreachable.code).toBe(1);
+  expect(unreachable.output).toContain("Не удалось соединиться с TMDB");
+  expect(unreachable.output).not.toContain("tmdb-fixture-only");
+});
+
+test("local development shows setup instructions while production keeps a general error", async ({
+  page,
+  request,
+}) => {
+  await page.goto("http://127.0.0.1:3102/");
+  await expect(
+    page.getByRole("complementary", {
+      name: "Диагностика для локального запуска",
+    }),
+  ).toBeVisible();
+  await expect(page.locator(".catalog-setup-hint")).toContainText(
+    "NUXT_TMDB_READ_TOKEN",
+  );
+  await expect(page.locator(".catalog-setup-hint")).toContainText(
+    "npm run doctor",
+  );
+  const html = await (await request.get("http://127.0.0.1:3101/")).text();
+  expect(html).not.toContain("Создайте .env рядом с package.json");
 });

@@ -5,12 +5,13 @@
   "scripts": {
     "dev": "nuxt dev --host 0.0.0.0",
     "build": "nuxt build",
-    "start": "node .output/server/index.mjs",
+    "start": "node --env-file-if-exists=.env .output/server/index.mjs",
     "postinstall": "nuxt prepare",
     "typecheck": "nuxt typecheck",
     "test": "npm run build && playwright test",
     "test:perf": "node scripts/performance.mjs",
-    "test:live": "node scripts/check-live.mjs"
+    "test:live": "node scripts/check-live.mjs",
+    "doctor": "node scripts/doctor.mjs"
   },
   "dependencies": {
     "nuxt": "3.21.11",
@@ -25,5 +26,8 @@
     "sharp": "0.34.5",
     "typescript": "5.9.3",
     "vue-tsc": "3.2.6"
+  },
+  "engines": {
+    "node": "^22.12.0 || >=24.0.0"
   }
 }

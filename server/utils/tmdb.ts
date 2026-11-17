@@ -13,7 +13,7 @@ const cachedRequest = defineCachedFunction(
     try {
       response = await upstreamFetch(url, {
         headers: {
-          Authorization: `Bearer ${config.tmdbReadToken}`,
+          Authorization: `Bearer ${config.tmdbReadToken.trim()}`,
           Accept: "application/json",
         },
         dispatcher,
@@ -83,7 +83,7 @@ export async function tmdbGet<T>(
   path: string,
   query: Record<string, string | number> = {},
 ): Promise<T> {
-  if (!useRuntimeConfig().tmdbReadToken)
+  if (!useRuntimeConfig().tmdbReadToken.trim())
     throw createError({
       statusCode: 503,
       statusMessage: "Catalog is not configured",

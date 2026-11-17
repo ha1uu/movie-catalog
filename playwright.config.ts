@@ -21,7 +21,7 @@ export default defineConfig({
       reuseExistingServer: false,
     },
     {
-      command: "node .output/server/index.mjs",
+      command: "npm start",
       url: "http://127.0.0.1:3100",
       env: {
         NITRO_HOST: "127.0.0.1",
@@ -32,13 +32,19 @@ export default defineConfig({
       reuseExistingServer: false,
     },
     {
-      command: "node .output/server/index.mjs",
+      command: "npm start",
       url: "http://127.0.0.1:3101",
       env: {
         NITRO_HOST: "127.0.0.1",
         NITRO_PORT: "3101",
         NUXT_TMDB_READ_TOKEN: "",
       },
+      reuseExistingServer: false,
+    },
+    {
+      command: "npm run dev -- --port 3102",
+      url: "http://127.0.0.1:3102",
+      env: { NUXT_TMDB_READ_TOKEN: "" },
       reuseExistingServer: false,
     },
   ],

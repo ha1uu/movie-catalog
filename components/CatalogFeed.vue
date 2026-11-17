@@ -203,6 +203,7 @@ watch(
         <AppIcon name="film" :size="32" />
         <h3>Не удалось загрузить фильмы</h3>
         <p>Каталог временно недоступен. Попробуйте ещё раз чуть позже.</p>
+        <CatalogSetupHint :error="error" />
         <button class="button button-primary" @click="refresh()">
           Попробовать снова
         </button>

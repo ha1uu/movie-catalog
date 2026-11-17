@@ -2036,3 +2036,31 @@ svg {
     margin-top: 8px;
   }
 }
+.catalog-setup-hint {
+  max-width: 640px;
+  padding: 16px 20px;
+  border: 1px solid #6a553e;
+  border-radius: 7px;
+  background: #28251c;
+  text-align: left;
+  overflow-wrap: anywhere;
+}
+.catalog-setup-hint strong {
+  font-size: 11px;
+  color: #ffb18d;
+  letter-spacing: 0.2px;
+}
+.catalog-setup-hint p {
+  font-size: 12px;
+  color: #c7c7b6;
+  margin-top: 8px;
+}
+.catalog-setup-hint a {
+  display: inline-block;
+  margin-top: 10px;
+  color: var(--accent);
+  font-size: 11px;
+}
+.catalog-setup-hint code {
+  color: #f0d7b6;
+}
