@@ -6,7 +6,7 @@ export default defineConfig({
   workers: 1,
   timeout: 30000,
   use: {
-    baseURL: process.env.TEST_BASE_URL || "http://127.0.0.1:3000",
+    baseURL: "http://127.0.0.1:3100",
     browserName: "chromium",
     launchOptions: {
       executablePath: process.env.CHROMIUM_PATH || "/usr/bin/chromium",
@@ -14,5 +14,33 @@ export default defineConfig({
     },
     screenshot: "only-on-failure",
   },
+  webServer: [
+    {
+      command: "node tests/fixtures/tmdb-server.mjs",
+      url: "http://127.0.0.1:4010/__health",
+      reuseExistingServer: false,
+    },
+    {
+      command: "node .output/server/index.mjs",
+      url: "http://127.0.0.1:3100",
+      env: {
+        NITRO_HOST: "127.0.0.1",
+        NITRO_PORT: "3100",
+        NUXT_TMDB_READ_TOKEN: "tmdb-fixture-only",
+        NUXT_TMDB_API_BASE: "http://127.0.0.1:4010/3",
+      },
+      reuseExistingServer: false,
+    },
+    {
+      command: "node .output/server/index.mjs",
+      url: "http://127.0.0.1:3101",
+      env: {
+        NITRO_HOST: "127.0.0.1",
+        NITRO_PORT: "3101",
+        NUXT_TMDB_READ_TOKEN: "",
+      },
+      reuseExistingServer: false,
+    },
+  ],
   reporter: "list",
 });

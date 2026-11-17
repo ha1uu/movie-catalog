@@ -8,11 +8,13 @@
     "start": "node .output/server/index.mjs",
     "postinstall": "nuxt prepare",
     "typecheck": "nuxt typecheck",
-    "test": "playwright test",
-    "test:perf": "node scripts/performance.mjs"
+    "test": "npm run build && playwright test",
+    "test:perf": "node scripts/performance.mjs",
+    "test:live": "node scripts/check-live.mjs"
   },
   "dependencies": {
     "nuxt": "3.21.11",
+    "undici": "7.30.2",
     "vue": "3.5.45",
     "vue-router": "4.6.4"
   },

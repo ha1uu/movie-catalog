@@ -77,7 +77,8 @@ async function loadMore() {
       signal: controller.signal,
     });
     if (current !== generation) return;
-    extra.value.push(...result.items);
+    const seen = new Set(items.value.map((movie) => movie.id));
+    extra.value.push(...result.items.filter((movie) => !seen.has(movie.id)));
     page.value = result.page;
     finished.value = !result.hasMore;
   } catch (err) {
@@ -105,14 +106,19 @@ onBeforeUnmount(() => {
   observer?.disconnect();
   controller?.abort();
 });
-watch([status, hasMore], () => {
-  if (
-    status.value === "success" &&
-    sentinel.value &&
-    sentinel.value.getBoundingClientRect().top < window.innerHeight + 180
-  )
-    loadMore();
-});
+watch(
+  [status, hasMore, page, loadingMore],
+  () => {
+    if (
+      hydrated.value &&
+      status.value === "success" &&
+      sentinel.value &&
+      sentinel.value.getBoundingClientRect().top < window.innerHeight + 180
+    )
+      loadMore();
+  },
+  { flush: "post" },
+);
 </script>
 <template>
   <section id="catalog" class="catalog-section" aria-labelledby="catalog-title">
@@ -130,14 +136,14 @@ watch([status, hasMore], () => {
     <div class="filter-bar">
       <div class="genre-tabs" aria-label="Жанры">
         <button
-          :disabled="!hydrated || navigating"
+          :disabled="!hydrated || navigating || !!filters.q"
           :aria-pressed="!filters.genre"
           :class="{ active: !filters.genre }"
           @click="setFilter('genre', '')"
         >
           <AppIcon name="grid" :size="15" />Все фильмы</button
         ><button
-          :disabled="!hydrated || navigating"
+          :disabled="!hydrated || navigating || !!filters.q"
           v-for="genre in data?.genres"
           :key="genre"
           :aria-pressed="filters.genre === genre"
@@ -164,20 +170,26 @@ watch([status, hasMore], () => {
           ><AppIcon name="chevron" :size="14" /></label
         ><label class="select-wrap sort-select"
           ><AppIcon name="filter" :size="17" /><select
-            :disabled="!hydrated || navigating"
+            :disabled="!hydrated || navigating || !!filters.q"
             :value="filters.sort"
             aria-label="Сортировка"
             @change="
               setFilter('sort', ($event.target as HTMLSelectElement).value)
             "
           >
-            <option value="popular">Выбор редакции</option>
+            <option value="popular">
+              {{ filters.q ? "По релевантности" : "По популярности" }}
+            </option>
             <option value="rating">По рейтингу</option>
             <option value="newest">Сначала новые</option></select
           ><AppIcon name="chevron" :size="14"
         /></label>
       </div>
     </div>
+    <p v-if="filters.q" class="search-hint">
+      Поиск по названию. Можно уточнить год; жанры и сортировка доступны после
+      сброса поиска.
+    </p>
     <div v-if="filters.q || isFiltered" class="active-filters">
       <span>{{
         filters.q ? `Поиск: «${filters.q}»` : "Фильтры применены"
@@ -190,13 +202,13 @@ watch([status, hasMore], () => {
       <div v-if="error" class="empty-state">
         <AppIcon name="film" :size="32" />
         <h3>Не удалось загрузить фильмы</h3>
-        <p>Проверьте соединение и попробуйте ещё раз.</p>
+        <p>Каталог временно недоступен. Попробуйте ещё раз чуть позже.</p>
         <button class="button button-primary" @click="refresh()">
           Попробовать снова
         </button>
       </div>
       <div v-else-if="status === 'pending'" class="movie-grid">
-        <MovieSkeleton v-for="n in 6" :key="n" />
+        <MovieSkeleton v-for="n in 12" :key="n" />
       </div>
       <div v-else-if="!items.length" class="empty-state">
         <AppIcon name="search" :size="32" />
@@ -221,7 +233,7 @@ watch([status, hasMore], () => {
       <div ref="sentinel" class="load-area">
         <template v-if="hasMore && !error && status !== 'pending'"
           ><div class="movie-grid more-skeletons">
-            <MovieSkeleton v-for="n in 6" :key="n" />
+            <MovieSkeleton v-for="n in 12" :key="n" />
           </div>
           <div class="load-control">
             <button

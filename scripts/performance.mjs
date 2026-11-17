@@ -7,7 +7,21 @@ const browser = await chromium.launch({
 const base = process.env.TEST_BASE_URL || "http://127.0.0.1:3000";
 const results = [];
 try {
-  for (const path of ["/", "/movies/free-guy", "/people/ryan-reynolds"]) {
+  const catalogResponse = await fetch(base + "/api/movies");
+  const peopleResponse = await fetch(base + "/api/people");
+  if (!catalogResponse.ok || !peopleResponse.ok)
+    throw new Error(
+      "Live API is unavailable; performance of an error screen is not a catalog readiness check",
+    );
+  const catalog = await catalogResponse.json(),
+    people = await peopleResponse.json();
+  if (!catalog.items?.length || !people.items?.length)
+    throw new Error("Live catalog is empty");
+  for (const path of [
+    "/",
+    `/movies/${catalog.items[0].id}`,
+    `/people/${people.items[0].id}`,
+  ]) {
     const context = await browser.newContext({
       viewport: { width: 1365, height: 900 },
     });

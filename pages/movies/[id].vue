@@ -1,9 +1,21 @@
 <script setup lang="ts">
 const route = useRoute();
-const { data, error } = await useFetch(`/api/movies/${route.params.id}`);
-if (error.value || !data.value)
-  throw createError({ statusCode: 404, statusMessage: "Фильм не найден" });
+const { data, error } = await useFetch(() => `/api/movies/${route.params.id}`);
+if (error.value)
+  throw createError({
+    statusCode: error.value.statusCode || 502,
+    message:
+      error.value.statusCode === 404
+        ? "Фильм не найден"
+        : "Каталог временно недоступен",
+  });
+if (!data.value)
+  throw createError({
+    statusCode: 502,
+    message: "Каталог временно недоступен",
+  });
 const movie = computed(() => data.value!.movie);
+const posterFailed = ref(false);
 const { isSaved, toggle } = useSaved();
 useSeoMeta({
   title: () => `${movie.value.title} (${movie.value.year}) — Кадр`,
@@ -26,7 +38,7 @@ useHead({
         duration: `PT${movie.value.duration}M`,
         image: movie.value.poster,
         genre: movie.value.genres,
-      }),
+      }).replace(/</g, "\\u003c"),
     },
   ],
 });
@@ -39,27 +51,28 @@ useHead({
     <section class="detail-main">
       <div class="detail-poster">
         <img
-          :src="movie.poster"
+          :src="posterFailed ? '/images/poster-placeholder.svg' : movie.poster"
           :alt="movie.title"
           width="360"
           height="540"
           fetchpriority="high"
+          @error="posterFailed = true"
         />
         <div class="detail-poster-caption">
           <AppIcon name="star" :size="16" />{{ movie.rating.toFixed(1)
-          }}<span>Рейтинг IMDb</span>
+          }}<span>Рейтинг TMDB</span>
         </div>
       </div>
       <div class="detail-copy">
         <p class="eyebrow muted-eyebrow">ИСТОРИЯ, КОТОРУЮ СТОИТ УВИДЕТЬ</p>
         <h1>{{ movie.title }}</h1>
         <p class="detail-original">
-          {{ movie.originalTitle }}<span>{{ movie.age }}</span>
+          {{ movie.originalTitle }}<span v-if="movie.age">{{ movie.age }}</span>
         </p>
         <div class="detail-tags">
-          <span>{{ movie.year }}</span
-          ><span>{{ movie.country }}</span
-          ><span
+          <span v-if="movie.year">{{ movie.year }}</span
+          ><span v-if="movie.country">{{ movie.country }}</span
+          ><span v-if="movie.duration"
             ><AppIcon name="clock" :size="15" />{{
               Math.floor(movie.duration / 60)
             }}

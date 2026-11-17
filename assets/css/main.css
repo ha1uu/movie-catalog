@@ -1914,3 +1914,125 @@ svg {
     width: auto;
   }
 }
+/* Live catalog: variable-length titles and remote portraits retain fixed frames. */
+.featured-content {
+  display: flex;
+  flex-direction: column;
+  width: min(650px, 65%);
+  max-width: none;
+  height: 100%;
+}
+.featured h2 {
+  white-space: normal;
+  font-size: clamp(30px, 4vw, 52px);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  line-height: 1.12;
+}
+.featured .original-title {
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+.featured-description {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.featured-actions {
+  margin-top: auto;
+  padding-top: 18px;
+  flex-shrink: 0;
+}
+.featured-meta {
+  flex-shrink: 0;
+}
+.featured-meta > span:last-child {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.featured-unavailable {
+  height: 100%;
+  min-height: 0;
+  background: linear-gradient(110deg, #1f2a24, #18201c);
+}
+.person-avatar > img,
+.person-portrait > img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center 20%;
+}
+.person-portrait:before {
+  z-index: 1;
+  pointer-events: none;
+}
+.person-portrait > img + .portrait-label {
+  display: none;
+}
+.person-bio {
+  white-space: pre-line;
+}
+.filmography-more {
+  margin-top: 25px;
+}
+.search-hint {
+  font-size: 11px;
+  color: var(--muted);
+  margin-bottom: 16px;
+  max-width: 720px;
+}
+.site-footer {
+  flex-wrap: wrap;
+  padding-top: 26px;
+  padding-bottom: 22px;
+  row-gap: 16px;
+}
+.tmdb-attribution {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  font-size: 9px;
+  color: #7f8d78;
+}
+.tmdb-attribution a {
+  color: #adbd9d;
+}
+.tmdb-attribution p {
+  font-size: 8px;
+}
+@media (max-width: 900px) {
+  .featured-content {
+    width: 75%;
+  }
+  .featured h2 {
+    font-size: 40px;
+  }
+}
+@media (max-width: 640px) {
+  .featured-content {
+    width: 100%;
+    height: auto;
+    max-height: 100%;
+  }
+  .featured h2 {
+    font-size: 34px;
+  }
+  .featured-actions {
+    margin-top: 0;
+  }
+  .tmdb-attribution {
+    display: block;
+  }
+  .tmdb-attribution p {
+    margin-top: 8px;
+  }
+}

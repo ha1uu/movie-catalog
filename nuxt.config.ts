@@ -3,6 +3,10 @@ import { defineNuxtConfig } from "nuxt/config";
 export default defineNuxtConfig({
   compatibilityDate: "2026-01-01",
   ssr: true,
+  runtimeConfig: {
+    tmdbReadToken: "",
+    tmdbApiBase: "https://api.themoviedb.org/3",
+  },
   devtools: { enabled: false },
   css: ["~/assets/css/main.css"],
   app: {

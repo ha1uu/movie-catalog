@@ -46,7 +46,7 @@ const failed = ref(false);
       movie.title
     }}</NuxtLink>
     <p class="movie-meta">
-      {{ movie.year }}<span>·</span>{{ movie.genres[0] }}
+      {{ movie.year || "Скоро" }}<span>·</span>{{ movie.genres[0] || "Кино" }}
     </p>
   </article>
 </template>

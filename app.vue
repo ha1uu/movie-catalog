@@ -14,6 +14,17 @@ const { notice } = useSaved();
     >
     <p>Место, где начинаются хорошие истории.</p>
     <span>О кино. С любовью. <span class="footer-year">© 2026</span></span>
+    <div class="tmdb-attribution">
+      <a
+        href="https://www.themoviedb.org/"
+        target="_blank"
+        rel="noopener noreferrer"
+        >Данные и изображения: TMDB</a
+      >
+      <p lang="en">
+        This product uses the TMDB API but is not endorsed or certified by TMDB.
+      </p>
+    </div>
   </footer>
   <Transition name="toast"
     ><div v-if="notice" class="toast" role="status">

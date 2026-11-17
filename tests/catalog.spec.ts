@@ -6,14 +6,14 @@ test("SSR renders catalog, film and person without JavaScript", async ({
   const context = await browser.newContext({ javaScriptEnabled: false });
   const page = await context.newPage();
   await page.goto("/");
-  await expect(page.locator(".movie-card:not(.skeleton-card)")).toHaveCount(6);
-  await page.goto("/movies/free-guy");
+  await expect(page.locator(".movie-card:not(.skeleton-card)")).toHaveCount(12);
+  await page.goto("/movies/550988");
   await expect(page.locator("h1")).toHaveText("Главный герой");
   await expect(page.locator(".detail-description")).toContainText(
     "персонаж видеоигры",
   );
   await expect(page).toHaveTitle(/Главный герой \(2021\)/);
-  await page.goto("/people/ryan-reynolds");
+  await page.goto("/people/10859");
   await expect(page.locator("h1")).toHaveText("Райан Рейнольдс");
   await expect(page.locator(".movie-card")).toHaveCount(2);
   await context.close();
@@ -64,10 +64,14 @@ test("infinite scrolling shows skeletons and loads unique movies to the end", as
     await route.continue();
   });
   await page.goto("/");
-  await expect(page.locator(".movie-card:not(.skeleton-card)")).toHaveCount(6);
-  await expect(page.locator(".skeleton-card")).toHaveCount(6);
-  await page.locator(".load-area").scrollIntoViewIfNeeded();
   await expect(page.locator(".movie-card:not(.skeleton-card)")).toHaveCount(12);
+  await expect(page.locator(".skeleton-card")).toHaveCount(12);
+  await page.locator(".load-area").scrollIntoViewIfNeeded();
+  await expect
+    .poll(() => page.locator(".movie-card:not(.skeleton-card)").count())
+    .toBeGreaterThanOrEqual(24);
+  await page.locator(".load-area").scrollIntoViewIfNeeded();
+  await expect(page.locator(".movie-card:not(.skeleton-card)")).toHaveCount(31);
   await expect(page.locator(".skeleton-card")).toHaveCount(0);
   await expect(page.locator(".end-message")).toBeVisible();
   const urls = await page
@@ -75,11 +79,11 @@ test("infinite scrolling shows skeletons and loads unique movies to the end", as
     .evaluateAll((links) =>
       links.map((a) => (a as HTMLAnchorElement).pathname),
     );
-  expect(new Set(urls).size).toBe(12);
+  expect(new Set(urls).size).toBe(31);
 });
 
 test("favorites persist on reload and can be removed", async ({ page }) => {
-  await page.goto("/movies/free-guy");
+  await page.goto("/movies/550988");
   await page
     .getByRole("button", { name: "Буду смотреть", exact: true })
     .click();
@@ -148,4 +152,137 @@ test("catalog has a retry state after a failed filter request", async ({
   await page.unroute("**/api/movies?**");
   await page.getByRole("button", { name: "Попробовать снова" }).click();
   await expect(page.locator(".movie-card:not(.skeleton-card)")).toHaveCount(2);
+});
+
+test("server forwards filters to TMDB, bridges 20-result pages without duplicates, and keeps token private", async ({
+  request,
+}) => {
+  const one = await (await request.get("/api/movies")).json();
+  const two = await (await request.get("/api/movies?page=2")).json();
+  const three = await (await request.get("/api/movies?page=3")).json();
+  expect([one.items.length, two.items.length, three.items.length]).toEqual([
+    12, 12, 7,
+  ]);
+  expect(
+    new Set(
+      [...one.items, ...two.items, ...three.items].map((movie) => movie.id),
+    ).size,
+  ).toBe(31);
+  expect(three.hasMore).toBe(false);
+  await request.get(
+    "/api/movies?genre=" +
+      encodeURIComponent("Драма") +
+      "&year=2022&sort=rating",
+  );
+  const calls = await (
+    await request.get("http://127.0.0.1:4010/__requests")
+  ).json();
+  expect(
+    calls.some(
+      (call: { path: string; query: Record<string, string> }) =>
+        call.path === "/3/discover/movie" &&
+        call.query.with_genres === "18" &&
+        call.query.primary_release_year === "2022" &&
+        call.query.sort_by === "vote_average.desc" &&
+        call.query["vote_count.gte"] === "300",
+    ),
+  ).toBe(true);
+  const html = await (await request.get("/movies/550988")).text();
+  expect(html).not.toContain("tmdb-fixture-only");
+  expect(html).not.toContain("tmdbReadToken");
+  expect(html).toContain("Рейтинг TMDB");
+});
+
+test("provider authentication, rate limits and outages are not disguised as 404", async ({
+  request,
+}) => {
+  for (const [id, status] of [
+    [990401, 502],
+    [990429, 503],
+    [990500, 502],
+    [999999, 404],
+  ]) {
+    expect((await request.get(`/api/movies/${id}`)).status()).toBe(status);
+    expect((await request.get(`/movies/${id}`)).status()).toBe(status);
+  }
+  expect((await request.get("/api/movies?page=NaN")).status()).toBe(400);
+  expect((await request.get("/api/movies?page=835")).status()).toBe(400);
+  expect((await request.get("/api/movies?q=hero&genre=18")).status()).toBe(400);
+});
+
+test("missing configuration returns 503 instead of static fallback", async ({
+  request,
+}) => {
+  const response = await request.get("http://127.0.0.1:3101/api/movies");
+  expect(response.status()).toBe(503);
+  expect((await response.json()).data.code).toBe("CATALOG_NOT_CONFIGURED");
+  const html = await (await request.get("http://127.0.0.1:3101/")).text();
+  expect(html).not.toContain("Главный герой");
+  expect(html).toContain("Не удалось загрузить фильмы");
+  expect(
+    (await request.get("http://127.0.0.1:3101/movies/550988")).status(),
+  ).toBe(503);
+});
+
+test("old saved slugs migrate to TMDB IDs", async ({ page }) => {
+  await page.addInitScript(() =>
+    localStorage.setItem(
+      "kadr-saved",
+      JSON.stringify(["free-guy", "the-adam-project"]),
+    ),
+  );
+  await page.goto("/saved");
+  await expect(page.locator(".movie-title")).toHaveCount(2);
+  await expect(page.locator(".movie-title").first()).toHaveAttribute(
+    "href",
+    "/movies/550988",
+  );
+});
+
+test("changing filters cancels an obsolete in-flight page", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1280, height: 720 });
+  let release: () => void = () => {};
+  const held = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  await page.route("**/api/movies?*page=2*", async (route) => {
+    await held;
+    try {
+      await route.continue();
+    } catch {
+      /* The filter change cancels this request. */
+    }
+  });
+  await page.goto("/");
+  const request = page.waitForRequest(
+    (request) =>
+      request.url().includes("/api/movies?") &&
+      request.url().includes("page=2"),
+  );
+  await page.locator(".load-area").scrollIntoViewIfNeeded();
+  await request;
+  await page.getByRole("button", { name: "Драма", exact: true }).click();
+  release();
+  await expect(page.locator(".movie-card:not(.skeleton-card)")).toHaveCount(3);
+  await expect(page.locator(".movie-title")).not.toContainText([
+    "Главный герой",
+  ]);
+});
+
+test("person filmography is deduplicated and paginated", async ({
+  page,
+  request,
+}) => {
+  const first = await (await request.get("/api/people/900001")).json();
+  const second = await (await request.get("/api/people/900001?page=2")).json();
+  expect(first.totalMovies).toBe(31);
+  expect(first.movies).toHaveLength(24);
+  expect(second.movies).toHaveLength(7);
+  expect(second.hasMore).toBe(false);
+  await page.goto("/people/900001");
+  await expect(page.locator(".movie-card")).toHaveCount(24);
+  await page.getByRole("button", { name: "Ещё фильмы", exact: true }).click();
+  await expect(page.locator(".movie-card")).toHaveCount(31);
 });

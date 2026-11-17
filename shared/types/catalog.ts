@@ -9,6 +9,7 @@ export interface Movie {
   country: string;
   age: string;
   poster: string;
+  backdrop: string | null;
   description: string;
   director: string;
   cast: string[];
@@ -23,10 +24,13 @@ export interface Person {
   bio: string;
   color: string;
   initials: string;
+  photo: string | null;
 }
 export interface MoviePage {
   items: Movie[];
   total: number;
   page: number;
   hasMore: boolean;
+  genres: string[];
+  years: number[];
 }
